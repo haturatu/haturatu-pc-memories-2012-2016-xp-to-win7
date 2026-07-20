@@ -1,0 +1,1593 @@
+<HTML>
+<HEAD>
+<TITLE>オセロゲームサンプル</TITLE>
+<meta name="viewport" content="width=320" />
+</HEAD>
+<SCRIPT language="JavaScript">
+// 位置情報クラス
+var fjsReversiPoint = function() {
+
+	this.x = 0;
+	this.y = 0;
+
+}
+
+// 候補手クラス
+var fjsReversiPutItem = function() {
+
+	this.x = 0;
+	this.y = 0;
+
+	this.score = 0;
+
+	this.bord = new fjsReversiBord();
+
+}
+
+// 盤面クラス定義
+var fjsReversiBord = function() {
+
+	var i;
+	var j;
+
+	// 盤面情報配列作成
+	this.cell = new Array();
+
+	// 盤面情報配列初期化
+	for (i = 0;i < 8;i++) {
+
+		// 二次元配列化
+		this.cell[i] = new Array();
+
+		for (j = 0;j < 8;j++) {
+			this.cell[i][j] = 0;
+		}
+
+	}
+
+	// 盤面コピー
+	this.assign = function(arg) {
+
+		var i;
+		var j;
+
+		// 引数の盤面配列をコピー
+		for (i = 0;i < 8;i++) {
+			for (j = 0;j < 8;j++) {
+				this.cell[j][i] = arg.cell[j][i];
+			}
+		}
+
+	};
+
+	// 盤面クリア
+	this.clear = function() {
+
+		var i;
+		var j;
+
+		for (i = 0;i < 8;i++) {
+			for (j = 0;j < 8;j++) {
+				this.cell[j][i] = 0;
+			}
+		}
+
+	};
+
+	// 盤面情報配列の指定位置に指定の値を設定
+	this.setPiece = function(piece, x, y) {
+
+		if (x < 0 || x > 7 || y < 0 || y > 7 || (piece != 1 && piece != -1)) {
+			return;
+		}
+
+		this.cell[x][y] = piece;
+
+	};
+
+	// 盤面情報配列の指定位置の値を返す
+	this.getPiece = function(x, y) {
+
+		if (x < 0 || x > 7 || y < 0 || y > 7) {
+			return 0;
+		}
+
+		return this.cell[x][y];
+
+	};
+
+	// 空白数を返す
+	this.getSpaceNum = function() {
+
+		var i;
+		var j;
+		var n;
+
+		n = 0;
+
+		for (i = 0;i < 8;i++) {
+			for (j = 0;j < 8;j++) {
+				if (this.getPiece(j, i) == 0) {
+					n++;
+				}
+			}
+		}
+
+		return n;
+
+	}
+
+	// 黒の数を返す
+	this.getBlackNum = function() {
+
+		var i;
+		var j;
+		var n;
+
+		n = 0;
+
+		for (i = 0;i < 8;i++) {
+			for (j = 0;j < 8;j++) {
+				if (this.getPiece(j, i) == 1) {
+					n++;
+				}
+			}
+		}
+
+		return n;
+
+	}
+
+	// 白の数を返す
+	this.getWhiteNum = function() {
+
+		var i;
+		var j;
+		var n;
+
+		n = 0;
+
+		for (i = 0;i < 8;i++) {
+			for (j = 0;j < 8;j++) {
+				if (this.getPiece(j, i) == -1) {
+					n++;
+				}
+			}
+		}
+
+		return n;
+
+	}
+
+	// 指定値の数を返す
+	this.getValNum = function(val) {
+
+		var i;
+		var j;
+		var n;
+
+		n = 0;
+
+		for (i = 0;i < 8;i++) {
+			for (j = 0;j < 8;j++) {
+				if (this.getPiece(j, i) == val) {
+					n++;
+				}
+			}
+		}
+
+		return n;
+
+	}
+
+	// 可能な手の数を数える
+	this.getPutNum = function(turn) {
+
+		var i;
+		var j;
+		var n;
+
+		n = 0;
+
+		// 盤面情報の各セルに配置可能か検証
+		for (i = 0;i < 8;i++) {
+			for (j = 0;j < 8;j++) {
+				if (this.canPut(turn, j, i)) {
+					n++;
+				}
+			}
+		}
+
+		return n;
+
+	}
+
+	// 可能な手の位置リストを返す
+	this.getPutPointList = function(turn) {
+
+		var list = new Array();
+
+		for (i = 0;i < 8;i++) {
+			for (j = 0;j < 8;j++) {
+				if (this.canPut(turn, j, i)) {
+
+					var item = new fjsReversiPoint();
+
+					item.x = j;
+					item.y = i;
+
+					list.push(item);
+
+				}
+			}
+		}
+
+		return list;
+
+	}
+
+	// 可能な手の位置リストを返す
+	this.getPutPutItemList = function(turn, row) {
+
+		var list = new Array();
+
+		for (i = 0;i < 8;i++) {
+			if (this.canPut(turn, i, row)) {
+
+				var item = new fjsReversiPutItem();
+
+				item.x = i;
+				item.y = row;
+
+				item.bord.assign(this);
+
+				list.push(item);
+
+			}
+		}
+
+		return list;
+
+	}
+
+	// 配置
+	this.putPiece = function(turn, x, y) {
+
+		var i;
+		var j;
+
+		if (!this.canPut(turn, x, y)) {
+			return;
+		}
+
+		// 周囲8マスから反転処理試行
+		for (i = -1;i <= 1;i++) {
+			for (j = -1;j <= 1;j++) {
+				this.reverse(turn, x, y, j, i);
+			}
+		}
+
+		this.setPiece(turn, x, y);
+
+	}
+
+	// 指定位置に配置可能か調べる
+	this.canPut = function(turn, x, y) {
+
+		var i;
+		var j;
+
+		for (i = -1;i <= 1;i++) {
+			for (j = -1;j <= 1;j++) {
+				if (this.getReverseNum(turn, x, y, j, i) > 0) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+
+	}
+
+	// 指定位置から方向指定でいくつ反転可能か調べる
+	this.getReverseNum = function(turn, x, y, dx, dy) {
+
+		var xx = x + dx;
+		var yy = y + dy;
+
+		n = 0;
+
+		if (xx < 0 || xx > 7 || yy < 0 || yy > 7 || (dx == 0 && dy == 0) ||	this.cell[x][y] != 0 || this.cell[xx][yy] != -turn) {
+			return 0;
+		}
+
+		while (xx >= 0 && xx < 8 && yy >= 0 && yy < 8 && this.cell[xx][yy] == -turn) {
+
+			xx += dx;
+			yy += dy;
+
+			n++;
+
+		}
+
+		if (xx >= 0 && xx < 8 && yy >= 0 && yy < 8 && this.cell[xx][yy] == turn) {
+			return n;
+		} else {
+			return 0;
+		}
+
+	}
+
+	// 指定位置から指定方向に反転処理
+	this.reverse = function(turn, x, y, dx, dy) {
+
+		var i;
+		var n = this.getReverseNum(turn, x, y, dx, dy);
+
+		if (n < 1) {
+			return;
+		}
+
+		for (i = 1;i <= n;i++) {
+			this.setPiece(turn, x + dx * i, y + dy * i);
+		}
+
+	}
+
+}
+
+// CPUプレイヤー思考処理用クラス
+var fjsReversiCPU = function(level, turn) {
+
+	// 思考レベル
+	this.level = level;
+
+	this.turn = turn;
+
+	// 候補手評価作業用盤面
+	this.gameBord = new fjsReversiBord();
+
+	// CPU処理進行管理変数
+	this.processCount = 0;
+	this.processIndex1 = 0;
+	this.processIndex2 = 0;
+	this.processStage = 0;
+
+	// 処理結果の決定手
+	this.result = null;
+
+	// 作業用保存領域
+	this.work = new Array();
+
+	// 処理対象盤面を設定
+	this.start = function(bord) {
+
+		this.gameBord.assign(bord);
+
+		this.processCount = 0;
+
+		this.processIndex1 = 0;
+		this.processIndex2 = 0;
+
+		this.processStage = 0;
+
+		this.result = null;
+
+		this.work = new Array();
+
+	}
+
+	// 思考処理
+	this.process = function() {
+
+		var i;
+		var j;
+
+		var itemList;
+
+		switch (this.processStage) {
+
+		// 最初に現在の盤面で可能な手を列挙
+		case 0:
+
+			// 作業領域0番に候補手の保存用配列作成
+			if (this.processIndex1 == 0 && this.processIndex2 == 0) {
+				this.work[0] = new Array();
+			}
+
+			if (this.gameBord.canPut(this.turn, this.processIndex1 * 2, this.processIndex2)) {
+
+				var item = new fjsReversiPoint();
+
+				item.x = this.processIndex1 * 2;
+				item.y = this.processIndex2;
+
+				this.work[0].push(item);
+
+			}
+
+			if (this.gameBord.canPut(this.turn, 1 + this.processIndex1 * 2, this.processIndex2)) {
+
+				var item = new fjsReversiPoint();
+
+				item.x = 1 + this.processIndex1 * 2;
+				item.y = this.processIndex2;
+
+				this.work[0].push(item);
+
+			}
+
+			this.processIndex1++;
+
+			if (this.processIndex1 == 4) {
+
+				this.processIndex1 = 0;
+				this.processIndex2++;
+
+			}
+
+			// 盤面すべてのマスの候補手を検索したら次へ
+			if (this.processIndex2 == 8) {
+				switch (this.level) {
+
+				case 0:
+
+					this.processStage = 1;
+
+					break;
+
+				case 1:
+				case 2:
+
+					this.processStage = 2;
+
+					break;
+
+				}
+			}
+
+			break;
+
+		// Lv0は乱数で手を決定
+		case 1:
+
+			// 可能な手の中から乱数で手を決定
+			var index = fjsReversiRandom(this.work[0].length);
+
+			this.result = new fjsReversiPoint();
+
+			this.result.x = this.work[0][index].x;
+			this.result.y = this.work[0][index].y;
+
+			return true;
+
+		// Lv1/Lv2可能な手を打った盤面作成
+		case 2:
+
+			itemList = new Array();
+
+			// 可能な手を打った場合の盤面を作成
+			for (i = 0;i < this.work[0].length;i++) {
+
+				itemList[i] = new fjsReversiPutItem();
+
+				itemList[i].x = this.work[0][i].x;
+				itemList[i].y = this.work[0][i].y;
+
+				// 現在の盤面をコピー
+				itemList[i].bord.assign(this.gameBord);
+
+				// コピーした盤面に候補の手を打つ
+				itemList[i].bord.putPiece(this.turn, itemList[i].x, itemList[i].y);
+
+			}
+
+			// 候補手リストを作業領域0番に保存
+			this.work[0] = itemList;
+
+			switch (this.level) {
+
+			case 1:
+
+				this.processIndex1 = 0;
+				this.processIndex2 = 0;
+
+				this.processStage = 3;
+
+				break;
+
+			case 2:
+
+				this.processIndex1 = 0;
+				this.processIndex2 = 0;
+
+				this.processStage = 4;
+
+				break;
+
+			}
+
+			break;
+
+		// Lv1手を決定
+		case 3:
+
+			var maxScore = Number.NEGATIVE_INFINITY;
+
+			// 候補手を打った盤面それぞれの得点を算出し、最高点を保存
+			for (i = 0;i < this.work[0].length;i++) {
+
+				this.work[0][i].score = fjsReversiGetScore(this.work[0][i].bord, this.turn);
+
+				if (this.work[0][i].score > maxScore) {
+					maxScore = this.work[0][i].score;
+				}
+
+			}
+
+			itemList = new Array();
+
+			// 最高点と同位の候補手をリストアップ
+			for (i = 0;i < this.work[0].length;i++) {
+				if (this.work[0][i].score == maxScore) {
+					itemList.push(this.work[0][i]);
+				}
+			}
+
+			var index = fjsReversiRandom(itemList.length);
+
+			this.result = new fjsReversiPoint();
+
+			this.result.x = itemList[index].x;
+			this.result.y = itemList[index].y;
+
+			return true;
+
+		// Lv2
+		case 4:
+
+			// 初回処理で作業用領域1番に保存用配列を作成
+			if (this.processIndex2 == 0) {
+				this.work[1] = new Array();
+			}
+
+			// 候補手を打った盤面に対する相手の予想手候補を1行ずつ取得
+			this.work[1] = this.work[1].concat(this.work[0][this.processIndex1].bord.getPutPutItemList(-this.turn, this.processIndex2));
+
+			// 次の行へ
+			this.processIndex2++;
+
+			// 盤面すべてで処理を終えたら次へ
+			if (this.processIndex2 == 8) {
+
+				this.processIndex2 = 0;
+
+				this.processStage = 5;
+
+			}
+
+			break;
+
+		case 5:
+
+			// 候補手オブジェクトが保持している作業用盤面に相手の予想手を配置
+			if (this.work[1].length > 0) {
+				for (i = 0;i < this.work[1].length;i++) {
+					this.work[1][i].bord.putPiece(-this.turn, this.work[1][i].x, this.work[1][i].y);
+				}
+			}
+
+			this.processStage = 6;
+
+			break;
+
+		case 6:
+
+			// 盤面毎の各候補手を評価し（相手から見た）最高評価の手を決定
+			if (this.work[1].length > 0) {
+
+				var maxScore = Number.NEGATIVE_INFINITY;
+				var maxItem = null;
+
+				for (i = 0;i < this.work[1].length;i++) {
+
+					// 評価関数で評価
+					this.work[1][i].score = fjsReversiGetScore(this.work[1][i].bord, -this.turn);
+
+					// これまでの最高評価なら最高評価候補に
+					if (this.work[1][i].score > maxScore) {
+
+						maxScore = this.work[1][i].score;
+
+						maxItem = this.work[1][i];
+
+					}
+
+				}
+
+				// 相手の最高評価の手を、自分側の評価関数で評価し保存
+				this.work[0][this.processIndex1].score = fjsReversiGetScore(maxItem.bord, this.turn);
+
+			} else { // 相手はパス
+
+				this.work[0][this.processIndex1].score = fjsReversiGetScore(this.work[0][this.processIndex1].bord, this.turn);
+
+			}
+
+			// 候補手すべての処理を終えたら、最高得点の候補手から手を決定
+			if (this.processIndex1 == this.work[0].length - 1) {
+				this.processStage = 7;
+			} else {
+
+				this.processStage = 4;
+				this.processIndex1++;
+
+				return false;
+
+			}
+
+			break;
+
+		case 7:
+
+			var maxScore = Number.NEGATIVE_INFINITY;
+
+			// 候補手の得点算出＆最高得点を記録
+			for (i = 0;i < this.work[0].length;i++) {
+
+				if (this.work[0][i].score > maxScore) {
+					maxScore = this.work[0][i].score;
+				}
+
+			}
+
+			itemList = new Array();
+
+			// 最高得点と同位の手をリストアップ
+			for (i = 0;i < this.work[0].length;i++) {
+				if (this.work[0][i].score == maxScore) {
+					itemList.push(this.work[0][i]);
+				}
+			}
+
+			// 最高得点の候補手の中から乱数で手を決定
+			var index = fjsReversiRandom(itemList.length);
+
+			this.result = new fjsReversiPoint();
+
+			this.result.x = itemList[index].x;
+			this.result.y = itemList[index].y;
+
+			// trueを返して処理終了を通知
+			return true;
+
+			break;
+
+		}
+
+		this.processCount++;
+
+		return false;
+
+	}
+
+}
+
+function fjsReversiRandom(max) {
+	return Math.floor(Math.random() * max);
+}
+
+// ゲーム開始前:0
+// ゲーム人間手番中:1
+// ゲームCPU手番中:2
+// ゲーム手番後ウエイト中:3
+// ゲームパス表示中:7
+// ゲーム終了表示中:9
+// ゲーム結果表示中:10
+var fjsReversiGameState;
+
+// 現在、あるいは勝利プレイヤー
+var fjsReversiGameTurn;
+
+// 黒-人間:1
+// 黒-CPU Lv0:2
+// 黒-CPU Lv1:3
+// 白-人間:-1
+// 白-CPU Lv0:-2
+// 白-CPU Lv1:-3
+var fjsReversiGamePlayer;
+
+var fjsReversiBlackPlayer;
+var fjsReversiWhitePlayer;
+
+var fjsReversiBlackCPU;
+var fjsReversiWhiteCPU;
+
+var fjsReversiBlackNum;
+var fjsReversiWhiteNum;
+
+// 盤面情報
+var fjsReversiGameBord = new fjsReversiBord();
+
+// 盤面マス目状態配列
+var fjsReversiCellState = new Array();
+
+for (fjsReversiTmp = 0;fjsReversiTmp < 8;fjsReversiTmp++) {
+	fjsReversiCellState[fjsReversiTmp] = new Array();
+}
+
+// カーソル変更スタイルシート用文字列
+var fjsReversiCellCursor = 'hand';
+
+// 実行環境がFirefoxなら「pointer」に
+if (navigator.userAgent.indexOf("Firefox") > 0) {
+	fjsReversiCellCursor = 'pointer';
+}
+
+var fjsReversiTimerID = 0;
+
+fjsReversiInit();
+
+// 初期化
+function fjsReversiInit() {
+
+	fjsReversiWriteHTML();
+	fjsReversiSetStyle();
+
+	fjsReversiReset();
+
+	fjsReversiDraw();
+
+}
+
+// 表示用HTML出力
+function fjsReversiWriteHTML() {
+
+	// 表示用HTML
+	var html = '';
+
+	var i;
+	var j;
+
+	html = html + '<div id="fjsReversiPanel">' + "\n";
+
+	html = html + '<div id="fjsReversiMessage">リバーシ</div>' + "\n";
+
+	html = html + '<div id="fjsReversiPieceStatus"><p id="fjsReversiPieceStatusLine"><span style="color: #000000;">●</span>:<span id="fjsReversiBlackNumDisp"></span> <span style="color: #ffffff;">●</span>:<span id="fjsReversiWhiteNumDisp"></span></p></div>' + "\n";
+
+	html = html + '<table id="fjsReversiTable" cellspacing="1" cellpadding="0">' + "\n";
+
+	// マス目表示用HTMLタグ作成
+	for (i = 0;i < 8;i++) {
+
+		html = html + '<tr style="padding: 0; margin: 0;">' + "\n";
+
+		for (j = 0;j < 8;j++) {
+
+			html = html + '<td class="fjsReversiCell" id="fjsReversiCell' + new String(j) + new String(i) + '" onclick="fjsReversiCellClick(' + new String(j) + ',' + new String(i) + ')"></td>' + "\n";
+
+		}
+
+		html = html + '</tr>' + "\n";
+
+	}
+
+	html = html + "</table>\n";
+
+	html = html + '<div id="fjsReversiControlPanel"><form name="fjsReversiControlForm">';
+
+	html = html + '<p id="fjsReversiControlPanelBlack">●:<input type="radio" name="fjsReversiBlackMenu" value="1" checked>人間 CPU<input type="radio" name="fjsReversiBlackMenu" value="2">Lv1 <input type="radio" name="fjsReversiBlackMenu" value="3">Lv2</p>';
+
+	html = html + '<p id="fjsReversiControlPanelWhite"><span style="padding: 0; margin: 0; color: #ffffff">●</span>:<input type="radio" name="fjsReversiWhiteMenu" value="1">人間 CPU<input type="radio" name="fjsReversiWhiteMenu" value="2" checked>Lv1 <input type="radio" name="fjsReversiWhiteMenu" value="3">Lv2</p></form>';
+
+	html = html + '<p id="fjsReversiControlPanelStart"><button style="padding: 2px; margin: 0px;" onClick="fjsReversiStartClick()">ゲーム開始</button></p>';
+	html = html + "</div>\n";
+
+	html = html + "</div>\n";
+
+	document.write(html);
+
+}
+
+// 出力したHTMLにスタイルシートを設定
+function fjsReversiSetStyle() {
+
+	var obj;
+
+	obj = document.getElementById('fjsReversiPanel');
+
+	obj.style.padding = '0';
+
+	obj.style.marginTop = '0';
+	obj.style.marginBottom = '0';
+	obj.style.marginLeft = 'auto';
+	obj.style.marginRight = 'auto';
+
+	obj.style.width = '232px';
+
+	obj.style.background = '#99aa99';
+
+	obj = document.getElementById('fjsReversiMessage');
+
+	obj.style.paddingTop = '2px';
+	obj.style.paddingBottom = '2px';
+	obj.style.paddingLeft = '0';
+	obj.style.paddingRight = '0';
+
+	obj.style.margin = '0';
+
+	obj.style.background = '#cccccc';
+
+	obj.style.textAlign = 'center';
+	obj.style.fontSize = '14px';
+	obj.style.fontFamily = 'monospace';
+
+	obj = document.getElementById('fjsReversiPieceStatus');
+
+	obj.style.paddingTop = '2px';
+	obj.style.paddingBottom = '2px';
+	obj.style.paddingLeft = '0';
+	obj.style.paddingRight = '0';
+
+	obj.style.margin = '0';
+
+	obj.style.background = '#9999cc';
+
+	obj.style.textAlign = 'center';
+	obj.style.fontSize = '14px';
+	obj.style.fontFamily = 'monospace';
+
+	obj = document.getElementById('fjsReversiPieceStatusLine');
+
+	obj.style.padding = '0';
+
+	obj.style.margin = '0';
+
+	obj = document.getElementById('fjsReversiControlPanel');
+
+	obj.style.padding = '0';
+
+	obj.style.margin = '0';
+
+	obj.style.textAlign = 'center';
+	obj.style.fontSize = '14px';
+
+	obj = document.getElementById('fjsReversiTable');
+
+	obj.style.padding = '0';
+
+	obj.style.margin = '0';
+
+	obj.style.background = '#000033';
+
+	obj.style.fontSize = '24px';
+
+	for (i = 0;i < 8;i++) {
+		for (j = 0;j < 8;j++) {
+
+			obj = document.getElementById('fjsReversiCell' + new String(j) + new String(i));
+
+			obj.style.padding = '0';
+
+			obj.style.margin = '0';
+
+			obj.style.width = '28px';
+			obj.style.height = '28px';
+
+			obj.style.textAlign = 'center';
+			obj.style.verticalAlign = 'middle';
+
+			obj.style.cursor = 'default';
+
+			obj.style.color = '#ffffff';
+			obj.style.background = '#669966';
+
+		}
+	}
+
+	obj = document.getElementById('fjsReversiControlPanel');
+
+	obj.style.padding = '0';
+
+	obj.style.margin = '0';
+
+	obj = document.getElementById('fjsReversiControlPanelBlack');
+
+	obj.style.padding = '0';
+
+	obj.style.margin = '10px';
+
+	obj = document.getElementById('fjsReversiControlPanelWhite');
+
+	obj.style.padding = '0';
+
+	obj.style.margin = '10px';
+
+	obj = document.getElementById('fjsReversiControlPanelStart');
+
+	obj.style.padding = '0';
+
+	obj.style.margin = '8px';
+
+}
+
+// ゲームリセット
+function fjsReversiReset() {
+
+	fjsReversiGameBord.clear();
+
+	// 初期配置
+	fjsReversiGameBord.setPiece(-1, 3, 3);
+	fjsReversiGameBord.setPiece(1, 4, 3);
+	fjsReversiGameBord.setPiece(1, 3, 4);
+	fjsReversiGameBord.setPiece(-1, 4, 4);
+
+	fjsReversiBlackNum = fjsReversiGameBord.getBlackNum();
+	fjsReversiWhiteNum = fjsReversiGameBord.getWhiteNum();
+
+}
+
+// 開始ボタンクリック時
+function fjsReversiStartClick() {
+
+	var i;
+
+	// 無条件にタイマーリセット
+	clearTimeout(fjsReversiTimerID);
+
+	// ゲーム初期化
+	fjsReversiReset();
+
+	// 黒プレイヤーの設定取得
+	var blackPlayer = 0;
+
+	for (i = 0;i < 3;i++) {
+		if (document.fjsReversiControlForm.fjsReversiBlackMenu[i].checked) {
+			blackPlayer = i + 1;
+		}
+	}
+
+	if (blackPlayer == 0) {
+		return;
+	}
+
+	if (blackPlayer == 1) { // 人間
+		fjsReversiBlackPlayer = 0;
+	} else { // CPU
+
+		fjsReversiBlackPlayer = 1;
+
+		fjsReversiBlackCPU = new fjsReversiCPU(blackPlayer - 1, 1);
+
+	}
+
+	// 白プレイヤーの設定取得
+	var whitePlayer = 0;
+
+	for (i = 0;i < 3;i++) {
+		if (document.fjsReversiControlForm.fjsReversiWhiteMenu[i].checked) {
+			whitePlayer = i + 1;
+		}
+	}
+
+	if (whitePlayer == 0) {
+		return;
+	}
+
+	if (whitePlayer == 1) { // 人間
+		fjsReversiWhitePlayer = 0;
+	} else { // CPU
+
+		fjsReversiWhitePlayer = 1;
+
+		fjsReversiWhiteCPU = new fjsReversiCPU(whitePlayer - 1, -1);
+
+	}
+
+	// 黒の手番
+	fjsReversiSetTurn(1);
+
+	fjsReversiDraw();
+
+}
+
+// マス目クリック時
+function fjsReversiCellClick(x, y) {
+
+	// 人間の手番なら、配置処理
+	if (fjsReversiGameState == 1) {
+
+		if (fjsReversiGameBord.canPut(fjsReversiGameTurn, x, y)) {
+
+			fjsReversiGameBord.putPiece(fjsReversiGameTurn, x, y);
+
+			fjsReversiDraw();
+
+			fjsReversiEndTurn(fjsReversiGameTurn);
+
+		}
+
+	}
+
+}
+
+// 手番開始
+function fjsReversiSetTurn(turn) {
+
+	fjsReversiGameTurn = turn;
+
+	// パス判定
+	if (fjsReversiGameBord.getPutNum(turn) == 0) {
+
+		fjsReversiGameState = 7;
+
+		fjsReversiDraw();
+
+		fjsReversiTimerID = setTimeout("fjsReversiSetTurn(" + new String(-turn) + ")", 1000);
+
+		return;
+
+	}
+
+	switch (turn) {
+
+	// 黒の番
+	case 1:
+
+		switch (fjsReversiBlackPlayer) {
+
+		// 人間
+		case 0:
+
+			fjsReversiGameState = 1;
+			fjsReversiGamePlayer = 1;
+
+			fjsReversiDraw();
+
+			break;
+
+		// CPU
+		case 1:
+
+			fjsReversiGameState = 2;
+			fjsReversiGamePlayer = 2;
+
+			fjsReversiDraw();
+
+			// CPUに現在の盤面を設定
+			fjsReversiBlackCPU.start(fjsReversiGameBord);
+
+			// CPU思考処理開始
+			fjsReversiCPUProcess(turn);
+
+			break;
+
+		}
+
+		break;
+
+	// 白の番
+	case -1:
+
+		switch (fjsReversiWhitePlayer) {
+
+		// 人間
+		case 0:
+
+			fjsReversiGameState = 1;
+			fjsReversiGamePlayer = -1;
+
+			fjsReversiDraw();
+
+			break;
+
+		// CPU
+		case 1:
+
+			fjsReversiGameState = 2;
+			fjsReversiGamePlayer = -2;
+
+			fjsReversiDraw();
+
+			// CPUに現在の盤面を設定
+			fjsReversiWhiteCPU.start(fjsReversiGameBord);
+
+			// CPU思考処理開始
+			fjsReversiCPUProcess(turn);
+
+			break;
+
+		}
+
+		break;
+
+	}
+
+	// 各マスのスタイル情報設定
+	fjsReversiSetCellState(fjsReversiGamePlayer);
+	fjsReversiSetCellStyle();
+
+}
+
+// 手番終了処理
+function fjsReversiEndTurn(turn) {
+
+	fjsReversiBlackNum = fjsReversiGameBord.getBlackNum();
+	fjsReversiWhiteNum = fjsReversiGameBord.getWhiteNum();
+
+	// 盤面に空きがなければ、ゲーム終了
+	if (fjsReversiGameBord.getSpaceNum() == 0) {
+
+		fjsReversiGameOver(0);
+
+		return;
+
+	}
+
+	// 双方パスならゲーム終了
+	if (fjsReversiGameBord.getPutNum(turn) == 0 && fjsReversiGameBord.getPutNum(-turn) == 0) {
+
+		fjsReversiGameOver(1);
+
+		return;
+
+	}
+
+	// 次の手番開始
+	fjsReversiSetTurn(-turn);
+
+	fjsReversiDraw();
+
+}
+
+// CPU思考中
+function fjsReversiCPUProcess(turn) {
+
+	var i;
+
+	// ウエイト軽減のため複数回まとめて実行
+	for (i = 0;i < 3;i++) {
+
+		switch (turn) {
+
+		case 1:
+
+			// CPU思考処理が終わったら、ウエイト後に配置処理へ
+			if (fjsReversiBlackCPU.process()) {
+
+				fjsReversiTimerID = setTimeout("fjsReversiCPUPut(fjsReversiBlackCPU)", 20);
+
+				return;
+
+			}
+
+			break;
+
+		case -1:
+
+			// CPU思考処理が終わったら、ウエイト後に配置処理へ
+			if (fjsReversiWhiteCPU.process()) {
+
+				fjsReversiTimerID = setTimeout("fjsReversiCPUPut(fjsReversiWhiteCPU)", 20);
+
+				return;
+
+			}
+
+			break;
+
+		}
+
+	}
+
+	// 思考処理継続中なら、一度制御を返した後に再び呼び出す
+	fjsReversiTimerID = setTimeout("fjsReversiCPUProcess(" + new String(turn) + ")", 10);
+
+}
+
+// CPU配置
+function fjsReversiCPUPut(cpu) {
+
+	// 思考処理で決定した場所に配置
+	fjsReversiGameBord.putPiece(cpu.turn, cpu.result.x, cpu.result.y);
+
+	fjsReversiDraw();
+
+	fjsReversiEndTurn(cpu.turn);
+
+}
+
+// ゲーム終了処理
+function fjsReversiGameOver(mode) {
+
+	switch (mode) {
+
+	// 「ゲーム終了」メッセージ表示状態
+	case 0:
+	case 1:
+
+		fjsReversiGameState = 9;
+
+		fjsReversiDraw();
+
+		// 判定結果表示へ
+		fjsReversiTimerID = setTimeout("fjsReversiGameOver(2)", 1000);
+
+		break;
+
+	// 判定と結果表示
+	case 2:
+
+		fjsReversiGameState = 10;
+
+		blackNum = fjsReversiGameBord.getBlackNum();
+		whiteNum = fjsReversiGameBord.getWhiteNum();
+
+		// 引き分け
+		if (blackNum == whiteNum) {
+			fjsReversiGameTurn = 0;
+		}
+
+		// 黒の勝ち
+		if (blackNum > whiteNum) {
+			fjsReversiGameTurn = 1;
+		}
+
+		// 白の勝ち
+		if (blackNum < whiteNum) {
+			fjsReversiGameTurn = -1;
+		}
+
+		fjsReversiDraw();
+
+		break;
+
+	}
+
+}
+
+// 描画処理
+function fjsReversiDraw() {
+
+	// メッセージ領域の参照取得
+	var message = document.getElementById('fjsReversiMessage');
+
+	// 状況に応じてメッセージ表示
+	switch (fjsReversiGameState) {
+
+	// ゲーム手番中
+	case 1:
+	case 2:
+
+		if (fjsReversiGameTurn == 1) {
+			message.innerHTML = '黒の番';
+		}
+
+		if (fjsReversiGameTurn == -1) {
+			message.innerHTML = '白の番';
+		}
+
+		break;
+
+	// パス中
+	case 7:
+
+		if (fjsReversiGameTurn == 1) {
+			message.innerHTML = '黒はパス';
+		}
+
+		if (fjsReversiGameTurn == -1) {
+			message.innerHTML = '白はパス';
+		}
+
+		break;
+
+	case 9:
+
+		document.getElementById('fjsReversiMessage').innerHTML = "ゲーム終了";
+
+		break;
+
+	case 10:
+
+		switch (fjsReversiGameTurn) {
+
+		case 0:
+
+			document.getElementById('fjsReversiMessage').innerHTML = "引き分け";
+
+			break;
+
+		case 1:
+
+			document.getElementById('fjsReversiMessage').innerHTML = "黒の勝ち";
+
+			break;
+
+		case -1:
+
+			document.getElementById('fjsReversiMessage').innerHTML = "白の勝ち";
+
+			break;
+
+		}
+
+		break;
+
+	}
+
+	// 黒と白の数を表示
+	document.getElementById('fjsReversiBlackNumDisp').innerHTML = new String(fjsReversiBlackNum);
+	document.getElementById('fjsReversiWhiteNumDisp').innerHTML = new String(fjsReversiWhiteNum);
+
+	// マス目表示
+	for (i = 0;i < 8;i++) {
+		for (j = 0;j < 8;j++) {
+
+			id = 'fjsReversiCell' + new String(j) + new String(i);
+			elm = document.getElementById(id);
+
+			switch (fjsReversiGameBord.getPiece(j, i)) {
+
+			case 1:
+
+				elm.style.color = '#000000';
+				elm.innerHTML = '●';
+
+				break;
+
+			case -1:
+
+				elm.style.color = '#ffffff';
+				elm.innerHTML = '●';
+
+				break;
+
+			default:
+
+				elm.innerHTML = '';
+
+				break;
+
+			}
+
+		}
+	}
+
+}
+
+function fjsReversiSetCellState(player) {
+
+	for (i = 0;i < 8;i++) {
+		for (j = 0;j < 8;j++) {
+
+			switch (fjsReversiGameBord.getPiece(j, i)) {
+
+			// 空き
+			case 0:
+
+				// プレイヤーが人間で、配置可能なら2に
+				if ((player == 1 || player == -1) && fjsReversiGameBord.canPut(player, j, i)) {
+					fjsReversiCellState[j][i] = 2;
+				} else {
+					fjsReversiCellState[j][i] = 0;
+				}
+
+				break;
+
+			case -1:
+			case 1:
+
+				fjsReversiCellState[j][i] = fjsReversiGameBord.getPiece(j, i);
+
+				break;
+
+			}
+
+		}
+	}
+
+}
+
+// マス目のスタイル設定
+function fjsReversiSetCellStyle() {
+
+	var i;
+	var j;
+
+	for (i = 0;i < 8;i++) {
+		for (j = 0;j < 8;j++) {
+
+			var id = "fjsReversiCell" + new String(j) + new String(i);
+			elm = document.getElementById(id);
+
+			switch (fjsReversiCellState[j][i]) {
+
+			// マス状態が2（配置可能）なら、カーソルをポインタに
+			case 2:
+
+				elm.style.cursor = fjsReversiCellCursor;
+
+				break;
+
+			default:
+
+				elm.style.cursor = 'default';
+
+				break;
+
+			}
+
+		}
+	}
+
+}
+
+// 盤面評価関数
+function fjsReversiGetScore(gameBord, turn) {
+
+	var i;
+	var j;
+
+	var score = 0;
+
+	// 可能な差し手の数を評価
+	score += gameBord.getPutNum(turn) * 4;
+
+	// 後半では盤面上の石の数も評価
+	if (gameBord.getSpaceNum() < 30) {
+		score += gameBord.getValNum(turn) * 2;
+	}
+
+	var bord = gameBord.cell;
+
+	// 四隅の処理
+	if (bord[0][0] == -turn) {
+		score -= 100;
+	}
+
+	if (bord[0][0] == turn) {
+
+		score += 150;
+
+		i = 1;
+
+		while (bord[i][0] == turn && i++ < 7) {
+			score += 4;
+		}
+
+		i = 1;
+
+		while (bord[0][i] == turn && i++ < 7) {
+			score += 4;
+		}
+
+	} else {
+
+		if (bord[1][0] == turn) {
+			score -= 40;
+		}
+
+		if (bord[0][1] == turn) {
+			score -= 40;
+		}
+
+		if (bord[1][1] == turn) {
+			score -= 40;
+		}
+
+	}
+
+	if (bord[7][0] == -turn) {
+		score -= 100;
+	}
+
+	if (bord[7][0] == turn) {
+
+		score += 150;
+
+		i = 1;
+
+		while (bord[7][i] == turn && i++ < 7) {
+			score += 4;
+		}
+
+		i = 1;
+
+		while (bord[7 - i][0] == turn && i++ < 7) {
+			score += 4;
+		}
+
+	} else {
+
+		if (bord[6][0] == turn) {
+			score -= 40;
+		}
+
+		if (bord[7][1] == turn) {
+			score -= 40;
+		}
+
+		if (bord[6][1] == turn) {
+			score -= 40;
+		}
+
+	}
+
+	if (bord[7][7] == -turn) {
+		score -= 100;
+	}
+
+	if (bord[7][7] == turn) {
+
+		score += 150;
+
+		i = 1;
+
+		while (bord[7 - i][7] == turn && i++ < 7) {
+			score += 4;
+		}
+
+		i = 1;
+
+		while (bord[7][7 - i] == turn && i++ < 7) {
+			score += 4;
+		}
+
+	} else {
+
+		if (bord[6][7] == turn) {
+			score -= 40;
+		}
+
+		if (bord[7][6] == turn) {
+			score -= 40;
+		}
+
+		if (bord[6][6] == turn) {
+			score -= 40;
+		}
+
+	}
+
+	if (bord[0][7] == -turn) {
+		score -= 100;
+	}
+
+	if (bord[0][7] == turn) {
+
+		score += 150;
+
+		i = 1;
+
+		while (bord[i][7] == turn && i++ < 7) {
+			score += 4;
+		}
+
+		i = 1;
+
+		while (bord[0][7 - i] == turn && i++ < 7) {
+			score += 4;
+		}
+
+	} else {
+
+		if (bord[1][7] == turn) {
+			score -= 40;
+		}
+
+		if (bord[0][6] == turn) {
+			score -= 40;
+		}
+
+		if (bord[1][6] == turn) {
+			score -= 40;
+		}
+
+	}
+
+	return score;
+
+}
+</SCRIPT>
+</HTML>
